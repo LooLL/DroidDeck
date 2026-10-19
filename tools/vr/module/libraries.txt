@@ -1,0 +1,2 @@
+org.opencv:opencv:4.13.0 https://repo1.maven.org/maven2/org/opencv/opencv/4.13.0/opencv-4.13.0.aar a8c9b0929d8d6367bb476320a1f36587db2b57ea18d8f7521ce509514903ca04 libopencv_java4.so
+com.google.mediapipe:tasks-core:1.0.0 https://dl.google.com/android/maven2/com/google/mediapipe/tasks-core/1.0.0/tasks-core-1.0.0.aar 609c6fcfe59f58c9739194f65ae5882281c327710e1a616aa7f533a4d9238ca3 libmediapipe_tasks_jni.so

@@ -1,0 +1,45 @@
+name: Build the VR module
+
+on:
+  push:
+    paths:
+      - 'tools/vr/**'
+      - 'app/src/main/cpp/waylandcomp/generated/**'
+      - 'app/src/main/cpp/waylandcomp/src/*_shm.h'
+      - 'docs/third-party/handtracking/**'
+      - '.github/workflows/build-vr-module.yml'
+  pull_request:
+    paths:
+      - 'tools/vr/**'
+      - 'app/src/main/cpp/waylandcomp/generated/**'
+      - 'app/src/main/cpp/waylandcomp/src/*_shm.h'
+      - 'docs/third-party/handtracking/**'
+      - '.github/workflows/build-vr-module.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Build
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu g++-aarch64-linux-gnu zstd >/dev/null
+          tools/vr/module/build.sh out
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vr-module
+          retention-days: 7
+          compression-level: 0
+          path: |
+            out/vr.tar.zst
+            out/vr.sha256
+            out/vr.files.txt
