@@ -515,9 +515,10 @@ results, app recovery behavior, and the unverified powered-adapter design.
 ## Building and testing
 
 - `tools/vr/build.sh [OUT]` builds the driver and the layer in the local cross image, or
-  `--native OUT` with aarch64 compilers on PATH (CI). `tools/build_local.sh` and CI put them in the
-  APK under `assets/linuxfs/usr/local/lib/droiddeck-vr`; `SessionFiles` stages them, and
-  `droiddeck-steamvr`, into the rootfs.
+  `--native OUT` with aarch64 compilers on PATH (CI). `tools/vr/module/build.sh` packs them with
+  the hand tracking models and libraries into the VR module, released from DroidDeck-Components;
+  the app downloads it from Setup or on the first Play SteamVR, and `SessionFiles` stages its
+  `linuxfs/` and `droiddeck-steamvr` into the rootfs.
 - Shader: `cardboard_frag.h` is generated from `cardboard.frag`
   (`glslangValidator -V --vn cardboard_frag_code -o cardboard_frag.h cardboard.frag`).
   `tools/tests/test_cardboard.py` checks it is current, and checks the push-constant packing on the

@@ -6,6 +6,7 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Matrix
 import android.graphics.Paint
+import com.droiddeck.launcher.runtime.VrModule
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.components.containers.Landmark as MpLandmark
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark
@@ -134,7 +135,6 @@ internal class HandModel private constructor(private val landmarkers: List<HandL
         hypot(fix.x - marks[WRISTS[side]].x * k.width, fix.y - marks[WRISTS[side]].y * k.height)
 
     companion object {
-        private const val MODEL = "handtracking/hand_landmarker.task"
         private val WRISTS = intArrayOf(BodyPose.LEFT_WRIST, BodyPose.RIGHT_WRIST)
         private val PINKIES = intArrayOf(BodyPose.LEFT_PINKY, BodyPose.RIGHT_PINKY)
         private val INDEXES = intArrayOf(BodyPose.LEFT_INDEX, BodyPose.RIGHT_INDEX)
@@ -153,7 +153,8 @@ internal class HandModel private constructor(private val landmarkers: List<HandL
         private const val MIN_CONFIDENCE = 0.4f
 
         fun open(context: Context): HandModel {
-            val bytes = context.assets.open(MODEL).use { it.readBytes() }
+            check(VrModule.loadMediaPipe(context))
+            val bytes = VrModule.file(context, VrModule.HAND_MODEL).readBytes()
             fun landmarker(mode: RunningMode, hands: Int): HandLandmarker {
                 val model = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).put(bytes)
                 model.rewind()

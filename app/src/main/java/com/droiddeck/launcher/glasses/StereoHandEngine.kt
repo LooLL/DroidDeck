@@ -2,6 +2,7 @@ package com.droiddeck.launcher.glasses
 
 import android.content.Context
 import com.droiddeck.launcher.R
+import com.droiddeck.launcher.runtime.VrModule
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
@@ -11,7 +12,6 @@ import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
 import com.google.mediapipe.tasks.vision.core.RunningMode
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
@@ -170,11 +170,12 @@ internal class StereoHandEngine(private val context: Context, private val token:
         } finally { calibrationProgress = calibrationProgress.copy(solving = false) }
     } }
     private fun detector(selected: HandModel=model, useGpu: Boolean=gpu, maxHands: Int=2): HandLandmarker {
-        val bytes=context.assets.open(selected.asset).use { it.readBytes() }
-        val hash=MessageDigest.getInstance("SHA-256").digest(bytes).joinToString("") { "%02x".format(it) }
+        check(VrModule.loadMediaPipe(context)) { context.getString(R.string.vr_module_needed) }
+        val file=VrModule.file(context,selected.path)
+        val hash=MessageDigest.getInstance("SHA-256").digest(file.readBytes()).joinToString("") { "%02x".format(it) }
         check(hash==selected.sha256) { context.getString(R.string.spatial_model_checksum_error) }
         return HandLandmarker.createFromOptions(context,HandLandmarker.HandLandmarkerOptions.builder()
-            .setBaseOptions(BaseOptions.builder().setModelAssetPath(selected.asset)
+            .setBaseOptions(BaseOptions.builder().setModelAssetPath(file.absolutePath)
                 .setDelegate(if(useGpu) Delegate.GPU else Delegate.CPU).build())
             .setRunningMode(RunningMode.VIDEO).setNumHands(maxHands).setMinHandDetectionConfidence(0.6f)
             .setMinHandPresenceConfidence(0.6f).setMinTrackingConfidence(0.6f).build())
@@ -325,7 +326,10 @@ internal class StereoHandEngine(private val context: Context, private val token:
         SpatialTracking.session.setHands(generation,SpatialHand(),SpatialHand())
     }
     private fun loop() {
-        try { check(OpenCVLoader.initLocal()) } catch(e: Throwable) { message=context.getString(R.string.spatial_opencv_error, e.message.orEmpty());return }
+        if(!VrModule.loadOpenCv(context)) {
+            message=context.getString(if(VrModule.installed(context)) R.string.spatial_opencv_load_error else R.string.vr_module_needed)
+            return
+        }
         var grayL=Mat();var grayR=Mat();val rgba=Mat()
         var bmpL: Bitmap?=null;var bmpR: Bitmap?=null
         var leftGray=ByteArray(0);var rightGray=ByteArray(0)
@@ -336,7 +340,6 @@ internal class StereoHandEngine(private val context: Context, private val token:
         var lastSource=0L;var lastStamp=0L;var captureOn=false;var captureRate=1000;var lastInputSeq=0L
         var rate=0f
         try {
-            check(OpenCVLoader.initLocal()) { context.getString(R.string.spatial_opencv_load_error) }
             joyConFlow=StereoJoyConFlow()
             while(running) {
                 while(true) {
@@ -390,7 +393,7 @@ internal class StereoHandEngine(private val context: Context, private val token:
                     calibration?.close()
                     val selected=StereoCalibrationProfile.select(
                         if(identity!=null) runCatching { profile.readText() }.getOrNull() else null,
-                        { runCatching { context.assets.open(StereoCalibrationProfile.BASE_ASSET).bufferedReader().use { it.readText() } }.getOrNull() },
+                        { runCatching { VrModule.file(context,VrModule.LUMA_CALIBRATION).readText() }.getOrNull() },
                         identity,w,h)
                     calibration=selected?.let(StereoCalibration::fromProfile)
                     calibrator?.close();calibrator=null

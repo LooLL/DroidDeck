@@ -30,6 +30,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import com.droiddeck.launcher.glasses.Vec3
+import com.droiddeck.launcher.runtime.VrModule
 import com.google.mediapipe.framework.image.BitmapImageBuilder
 import com.google.mediapipe.tasks.core.BaseOptions
 import com.google.mediapipe.tasks.core.Delegate
@@ -188,7 +189,8 @@ internal class HandCamera(
     private fun prepare() {
         if (stopped) return
         runCatching {
-            val bytes = context.assets.open(MODEL).use { it.readBytes() }
+            check(VrModule.loadMediaPipe(context))
+            val bytes = VrModule.file(context, VrModule.POSE_MODEL).readBytes()
             val model = ByteBuffer.allocateDirect(bytes.size).order(ByteOrder.nativeOrder()).put(bytes)
             model.rewind()
             val options = PoseLandmarker.PoseLandmarkerOptions.builder()
@@ -305,7 +307,6 @@ internal class HandCamera(
 
     companion object {
         private const val TAG = "HandCamera"
-        private const val MODEL = "handtracking/pose_landmarker_lite.task"
         private const val ANALYSIS_WIDTH = 960
         private const val ANALYSIS_HEIGHT = 720
         private const val MIN_CONFIDENCE = 0.5f

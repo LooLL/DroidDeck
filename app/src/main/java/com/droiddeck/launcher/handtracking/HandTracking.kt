@@ -5,6 +5,7 @@ import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import com.droiddeck.launcher.input.ControllerPrefs
+import com.droiddeck.launcher.runtime.VrModule
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -79,7 +80,7 @@ internal object HandTracking {
 
     fun shouldAsk(settings: Settings, headset: Boolean): Boolean = headset && !settings.asked && settings.usable
 
-    fun wanted(context: Context): Boolean = supported && load(context).ready
+    fun wanted(context: Context): Boolean = supported && VrModule.state.value.installed && load(context).ready
 
     fun requestCheck() {
         checks.value++

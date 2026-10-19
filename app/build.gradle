@@ -84,6 +84,21 @@ def commitTime = (gitValue(['show', '-s', '--format=%ct', 'HEAD']) ?: '0').with 
 def desktopKde = rootProject.file('tools/desktop-kde/release.env').readLines()
     .findAll { it.contains('=') && !it.startsWith('#') }
     .collectEntries { def kv = it.split('=', 2); [(kv[0].trim()): kv[1].trim()] }
+def vrModule = rootProject.file('tools/vr/module/release.env').readLines()
+    .findAll { it.contains('=') && !it.startsWith('#') }
+    .collectEntries { def kv = it.split('=', 2); [(kv[0].trim()): kv[1].trim()] }
+vrModule.VR_MODULE_URL = "https://github.com/${vrModule.VR_MODULE_REPO}/releases/download/${vrModule.VR_MODULE_TAG}/vr.tar.zst"
+def localVrModule = (project.findProperty('vrModule') ?: localBuildOptions.getProperty('droiddeck.vrModule', '')).toString()
+if (localVrModule) {
+    def archive = file(localVrModule)
+    if (!archive.isFile()) throw new GradleException("VR module archive not found: ${archive}")
+    def digest = java.security.MessageDigest.getInstance('SHA-256')
+    archive.eachByte(1 << 20) { buffer, length -> digest.update(buffer, 0, length) }
+    def sha256 = digest.digest().encodeHex().toString()
+    vrModule = [VR_MODULE_TAG: "local-${sha256.take(12)}", VR_MODULE_URL: '', VR_MODULE_SHA256: sha256, VR_MODULE_SIZE: archive.length()]
+}
+def vrLibraries = rootProject.file('tools/vr/module/libraries.txt').readLines()
+    .findAll { it.trim() }.collect { it.trim().split(/\s+/)[3] }
 def desktopRemovalSources = new groovy.json.JsonSlurper().parse(file('src/main/assets/desktop-removal/sources.json'))
 if (desktopRemovalSources.archives[desktopKde.DESKTOP_KDE_TAG] != desktopKde.DESKTOP_KDE_SHA256) {
     throw new GradleException('Desktop removal inventories do not match the pinned archive')
@@ -119,6 +134,10 @@ android {
         buildConfigField "String", "DESKTOP_KDE_URL", "\"https://github.com/${desktopKde.DESKTOP_KDE_REPO}/releases/download/${desktopKde.DESKTOP_KDE_TAG}/desktop-kde.tar.zst\""
         buildConfigField "String", "DESKTOP_KDE_SHA256", "\"${desktopKde.DESKTOP_KDE_SHA256}\""
         buildConfigField "long", "DESKTOP_KDE_SIZE", "${desktopKde.DESKTOP_KDE_SIZE}L"
+        buildConfigField "String", "VR_MODULE_TAG", "\"${vrModule.VR_MODULE_TAG}\""
+        buildConfigField "String", "VR_MODULE_URL", "\"${vrModule.VR_MODULE_URL}\""
+        buildConfigField "String", "VR_MODULE_SHA256", "\"${vrModule.VR_MODULE_SHA256}\""
+        buildConfigField "long", "VR_MODULE_SIZE", "${vrModule.VR_MODULE_SIZE}L"
 
         ndk {
             abiFilters 'arm64-v8a'
@@ -179,6 +198,7 @@ android {
         jniLibs {
             useLegacyPackaging = true
             pickFirsts += ['**/libtermux.so']
+            excludes += vrLibraries.collect { "**/${it}" }
         }
     }
 
@@ -235,6 +255,14 @@ def stageRuntimeAssets = tasks.register('stageRuntimeAssets', Sync) {
 }
 android.sourceSets.main.assets.setSrcDirs([runtimeAssetsDir])
 if (vitureSdkDir) android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('vitureAssets'))
+if (localVrModule) {
+    def stageVrModule = tasks.register('stageVrModule', Copy) {
+        from(file(localVrModule)) { rename { 'vr.tar.zst' } }
+        into(layout.buildDirectory.dir('vrModuleAssets/vr'))
+    }
+    tasks.named('preBuild').configure { dependsOn(stageVrModule) }
+    android.sourceSets.main.assets.srcDir(layout.buildDirectory.dir('vrModuleAssets'))
+}
 if (uvcDir) {
     def stageUvcNotices = tasks.register('stageUvcNotices', Copy) {
         from(new File(uvcDir, 'licenses'))

@@ -83,6 +83,7 @@ import com.droiddeck.launcher.input.SecondScreenMode
 import com.droiddeck.launcher.input.TouchpadGestures
 import com.droiddeck.launcher.input.ScrollTouchGestures
 import com.droiddeck.launcher.runtime.LinuxRuntime
+import com.droiddeck.launcher.runtime.VrModule
 import com.droiddeck.launcher.session.LoadingState
 import com.droiddeck.launcher.session.PerfHud
 import com.droiddeck.launcher.session.PerfMode
@@ -417,6 +418,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             SessionState.steamVr = intent.getBooleanExtra(EXTRA_STEAMVR, false)
         } else if (intent.getBooleanExtra(EXTRA_STEAMVR, false) && SessionState.mode == SessionService.MODE_STEAM) {
             SessionState.steamVr = true
+            if (!VrModule.state.value.installed) VrModule.install(this)
         }
         if (SessionState.steamVr) Glasses.prepareSteamVrStart()
         if (intent.action == SessionService.ACTION_AGENT_START) {
@@ -510,7 +512,8 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 !com.droiddeck.launcher.runtime.DesktopCatalog.desktopInstalled(this)
             val needProton = (intent.getStringExtra(SessionService.EXTRA_MODE) ?: SessionService.MODE_STEAM) == SessionService.MODE_STEAM &&
                 com.droiddeck.launcher.runtime.DesktopCatalog.protonSeedNeeded(this)
-            if (needRuntime || needDesktop || needProton) installThenStart(needRuntime, needDesktop, needProton)
+            val needVr = intent.getBooleanExtra(EXTRA_STEAMVR, false) && !VrModule.state.value.installed
+            if (needRuntime || needDesktop || needProton || needVr) installThenStart(needRuntime, needDesktop, needProton, needVr)
         }
         hud = PerfHud(this)
         hud.onPresentingWindowChanged = {
@@ -1327,16 +1330,16 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
 
     @Volatile private var installingRuntime = false
 
-    private fun installThenStart(runtime: Boolean, desktop: Boolean, proton: Boolean = false) {
+    private fun installThenStart(runtime: Boolean, desktop: Boolean, proton: Boolean, vr: Boolean) {
         if (SessionState.stopRequested) return
         installingRuntime = true
-        SessionState.installing = if (runtime) "runtime" else if (desktop) "desktop" else "proton"
+        SessionState.installing = if (runtime) "runtime" else if (desktop) "desktop" else if (proton) "proton" else "vr"
         SessionEvents.transition(
             SessionPhase.INSTALLING_RUNTIME,
             "${SessionState.installing}.installing",
             mapOf("component" to SessionState.installing),
         )
-        val first = if (runtime) RUNTIME_LINES else if (desktop) DESKTOP_LINES else PROTON_LINES
+        val first = if (runtime) RUNTIME_LINES else if (desktop) DESKTOP_LINES else if (proton) PROTON_LINES else VR_LINES
         loading.say(getString(first.downloading), first.topic, readable = true)
         loading.percent = -1
         Thread({
@@ -1359,6 +1362,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                 if (protonProblem == null) SessionEvents.record("proton.ready")
                 else SessionEvents.record("proton.skipped", mapOf("reason" to protonProblem))
             }
+            if (problem == null && vr && !SessionState.stopRequested) {
+                SessionState.installing = "vr"
+                SessionEvents.transition(SessionPhase.INSTALLING_RUNTIME, "vr.installing", mapOf("component" to "vr"))
+                problem = installVr()
+                if (problem == null) SessionEvents.record("vr.ready") else failedComponent = "vr"
+            }
             uiHandler.post {
                 installingRuntime = false
                 SessionState.installing = null
@@ -1370,7 +1379,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
                     return@post
                 }
                 if (problem != null) {
-                    val code = if (failedComponent == "runtime") "RUNTIME_INSTALL_FAILED" else "DESKTOP_INSTALL_FAILED"
+                    val code = when (failedComponent) {
+                        "runtime" -> "RUNTIME_INSTALL_FAILED"
+                        "vr" -> "VR_MODULE_INSTALL_FAILED"
+                        else -> "DESKTOP_INSTALL_FAILED"
+                    }
                     SessionEvents.fail(code, problem)
                     collectStartArtifacts("session start failed")
                     loading.showEnded(problem)
@@ -1432,6 +1445,12 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         val problem = com.droiddeck.launcher.runtime.DesktopCatalog.install(this, entry,
             progressFor(DESKTOP_LINES, entry.size / 1_000_000))
         return problem?.let { getString(R.string.session_desktop_install_failed, it) }
+    }
+
+    private fun installVr(): String? {
+        uiHandler.post { loading.percent = -1; loading.say(getString(VR_LINES.downloading), VR_LINES.topic, readable = true) }
+        val problem = VrModule.install(this, progressFor(VR_LINES, BuildConfig.VR_MODULE_SIZE / 1_000_000)).get()
+        return problem?.let { getString(R.string.session_vr_install_failed, it) }
     }
 
     private fun installProton(): String? {
@@ -2674,6 +2693,7 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
         if (intent.getBooleanExtra(EXTRA_STEAMVR, false) && SessionState.mode == SessionService.MODE_STEAM) {
             SessionState.steamVr = true
             steamVrAutoTried = false
+            if (!VrModule.state.value.installed) VrModule.install(this)
         }
         if (intent.action == SessionService.ACTION_HOME_GUIDE) {
             handleHomeGuideIntent(intent)
@@ -3231,6 +3251,11 @@ class SessionActivity : ComponentActivity(), SurfaceHolder.Callback {
             R.string.session_desktop_downloading, R.string.session_desktop_downloading_mb,
             R.string.session_desktop_checking, R.string.session_desktop_unpacking,
             LoadingState.Topic.DESKTOP, checkingReadable = false,
+        )
+        private val VR_LINES = PackageLines(
+            R.string.session_vr_downloading, R.string.session_vr_downloading_mb,
+            R.string.session_vr_checking, R.string.session_vr_unpacking,
+            LoadingState.Topic.RUNTIME, checkingReadable = false,
         )
         private val PROTON_LINES = PackageLines(
             R.string.session_proton_downloading, R.string.session_proton_downloading_mb,

@@ -72,6 +72,7 @@ import com.droiddeck.launcher.handtracking.HandCamera
 import com.droiddeck.launcher.handtracking.HandTracking
 import com.droiddeck.launcher.handtracking.Landmark
 import com.droiddeck.launcher.handtracking.TrackingCameras
+import com.droiddeck.launcher.runtime.VrModule
 import kotlinx.coroutines.delay
 import java.util.Locale
 
@@ -163,6 +164,7 @@ internal fun HandCameraRows(host: MenuHost, track: (String) -> Modifier, inSessi
         onDispose { lifecycle.removeObserver(watch) }
     }
     val s by HandTracking.settings.collectAsState()
+    val vrModule by VrModule.state.collectAsState()
     if (!s.usable) return
     var denied by remember { mutableStateOf(false) }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
@@ -179,6 +181,7 @@ internal fun HandCameraRows(host: MenuHost, track: (String) -> Modifier, inSessi
         listOf(TrackingCameras.REAR to stringResource(R.string.hand_camera_rear), TrackingCameras.FRONT to stringResource(R.string.hand_camera_front)),
         s.side ?: TrackingCameras.REAR, chipModifier = track("hand-camera-side")) { HandTracking.setSide(context, it) }
     when {
+        !vrModule.installed -> VrModuleRows(uninstall = null, track)
         !s.permitted && denied -> ActionRow(stringResource(R.string.hand_camera_access), stringResource(R.string.hand_camera_access_denied),
             stringResource(R.string.hand_camera_open_settings), {
                 context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null))

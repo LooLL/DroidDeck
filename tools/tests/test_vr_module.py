@@ -25,6 +25,15 @@ class VrModuleTest(unittest.TestCase):
                 self.assertRegex(sha256, '^[0-9a-f]{64}$')
                 self.assertRegex(library, r'^lib[a-z0-9_]+\.so$')
 
+    def test_the_app_loads_and_leaves_out_the_same_libraries(self):
+        module = (ROOT / 'app/src/main/java/com/droiddeck/launcher/runtime/VrModule.kt').read_text()
+        gradle = (ROOT / 'app/build.gradle').read_text()
+        self.assertIn("tools/vr/module/libraries.txt", gradle)
+        self.assertIn('excludes += vrLibraries', gradle)
+        for library in sorted(entry[3] for entry in libraries()):
+            with self.subTest(library=library):
+                self.assertIn(f'"{library}"', module)
+
     def test_models_match_their_provenance(self):
         models = sorted((MODULE / 'models').glob('*.task'))
         self.assertEqual([model.name for model in models],

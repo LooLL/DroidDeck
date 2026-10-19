@@ -26,6 +26,7 @@ class App : Application() {
         com.droiddeck.launcher.session.SessionPrefs.settleGpuDriverMode(this)
         com.droiddeck.launcher.update.AppUpdates.init(this)
         com.droiddeck.launcher.core.DownloadSource.init(this)
+        com.droiddeck.launcher.runtime.VrModule.init(this)
         GpuClockPin.clearLeftover(this)
         com.droiddeck.launcher.glasses.Glasses.init(this)
         com.droiddeck.launcher.glasses.GlassesMenuMirror.initialize(this)

@@ -34,8 +34,8 @@ import com.droiddeck.launcher.glasses.SpatialCalibrationProgress
 import com.droiddeck.launcher.glasses.SpatialTracking
 import com.droiddeck.launcher.glasses.SpatialTrackingStatus
 import com.droiddeck.launcher.glasses.StereoCalibrator
+import com.droiddeck.launcher.runtime.VrModule
 import kotlinx.coroutines.delay
-import org.opencv.android.OpenCVLoader
 import org.opencv.android.Utils
 import org.opencv.core.Mat
 import org.opencv.core.Size
@@ -95,7 +95,10 @@ class SpatialTrackingActivity : ComponentActivity() {
     }
     override fun onPause() { SpatialTracking.diagnostics(false);super.onPause() }
     private fun printBoard() {
-        if(!OpenCVLoader.initLocal()) return
+        if(!VrModule.loadOpenCv(this)) {
+            android.widget.Toast.makeText(this,R.string.vr_module_needed,android.widget.Toast.LENGTH_LONG).show()
+            return
+        }
         val c=StereoCalibrator(this);val mat=Mat()
         c.board.generateImage(Size(1500.0,2100.0),mat,0,1)
         val bitmap=Bitmap.createBitmap(1500,2100,Bitmap.Config.ARGB_8888)
