@@ -34,6 +34,15 @@ class VrModuleTest(unittest.TestCase):
                 provenance = json.loads(model.with_suffix('.provenance.json').read_text())
                 self.assertEqual(hashlib.sha256(model.read_bytes()).hexdigest(), provenance['sha256'])
 
+    def test_every_shipped_license_exists(self):
+        script = (MODULE / 'build.sh').read_text()
+        for source in re.findall(r'cp "\$repo/([^"]+)" "\$root/licenses/', script):
+            with self.subTest(source=source):
+                self.assertTrue((ROOT / source).is_file())
+        for name in re.search(r'for name in ([a-z ]+); do mkdir -p "\$root/licenses', script).group(1).split():
+            with self.subTest(name=name):
+                self.assertIn(f'$root/licenses/{name}/', script)
+
     def test_the_workflow_builds_this_module(self):
         workflow = (ROOT / '.github/workflows/build-vr-module.yml').read_text()
         self.assertIn('tools/vr/module/build.sh out', workflow)

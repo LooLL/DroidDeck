@@ -7,6 +7,8 @@ on:
       - 'app/src/main/cpp/waylandcomp/generated/**'
       - 'app/src/main/cpp/waylandcomp/src/*_shm.h'
       - 'docs/third-party/handtracking/**'
+      - 'docs/third-party/joycon/**'
+      - 'LICENSE'
       - '.github/workflows/build-vr-module.yml'
   pull_request:
     paths:
@@ -14,6 +16,8 @@ on:
       - 'app/src/main/cpp/waylandcomp/generated/**'
       - 'app/src/main/cpp/waylandcomp/src/*_shm.h'
       - 'docs/third-party/handtracking/**'
+      - 'docs/third-party/joycon/**'
+      - 'LICENSE'
       - '.github/workflows/build-vr-module.yml'
   workflow_dispatch:
 

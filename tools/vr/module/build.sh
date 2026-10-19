@@ -10,7 +10,8 @@ work=$repo/build/vr-module
 root=$work/root
 guest=$root/linuxfs/usr/local/lib/droiddeck-vr
 rm -rf "$work"
-mkdir -p "$root/lib" "$root/licenses/mediapipe" "$root/licenses/opencv" "$root/licenses/openvr" "$work/aar"
+mkdir -p "$root/lib" "$work/aar"
+for name in droiddeck mediapipe opencv openvr gvr monado sdpolygon wayland; do mkdir -p "$root/licenses/$name"; done
 
 "$repo/tools/vr/build.sh" --native "$guest"
 install -Dm644 "$guest/layer/VK_LAYER_DROIDDECK_vr_implicit.json" \
@@ -33,6 +34,17 @@ done
 cp "$repo/docs/third-party/handtracking/LICENSE_MEDIAPIPE" "$root/licenses/mediapipe/LICENSE"
 cp "$repo/docs/third-party/handtracking/LICENSE_OPENCV" "$root/licenses/opencv/LICENSE"
 cp "$repo/tools/vr/src/OPENVR_LICENSE" "$root/licenses/openvr/LICENSE"
+cp "$repo/LICENSE" "$root/licenses/droiddeck/LICENSE"
+echo "https://github.com/Droid-Deck/DroidDeck/tree/$(git -C "$repo" rev-parse HEAD)" > "$root/licenses/droiddeck/SOURCE"
+cp "$repo/docs/third-party/joycon/LICENSE_GVR" "$root/licenses/gvr/LICENSE"
+cp "$repo/docs/third-party/joycon/LICENSE_MONADO" "$root/licenses/monado/LICENSE"
+cp "$repo/docs/third-party/handtracking/LICENSE_SDPOLYGON" "$root/licenses/sdpolygon/LICENSE"
+{
+    sed -n '/@section page_copyright_wayland/,/\*\//p' "$repo/tools/vr/third_party/wayland/wayland-client-protocol.h" | sed -e '1,2d' -e '$d'
+    echo ' *'
+    sed -n '2,/\*\//p' "$repo/app/src/main/cpp/waylandcomp/generated/xdg-shell-protocol.c" | sed '$d'
+} | sed -e 's/^ \* \{0,1\}//' > "$root/licenses/wayland/COPYING"
+grep -q 'Permission is hereby granted' "$root/licenses/wayland/COPYING"
 
 find "$root" -type d -exec chmod 755 {} +
 find "$root" -type f -exec chmod 644 {} +
